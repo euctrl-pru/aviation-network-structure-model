@@ -22,32 +22,6 @@ sk <- import("sklearn")
 ##### Import Data #####
 weeks <- 26:31
 
-# Create sample data
-net2019 <- fread("df_2019.csv") %>%
-  filter(week %in% weeks) %>%
-  group_by(origin, destination, week, market_segment,type.origin,type.destination,from_member_status,to_member_status)%>%
-  reframe(weight = sum(weight))
-
-net2020 <- fread("df_2020.csv") %>%
-  filter(week %in% weeks)  %>%
-  group_by(origin, destination, week, market_segment,type.origin,type.destination,from_member_status,to_member_status)%>%
-  reframe(weight = sum(weight))
-
-net2021 <- fread("df_2021.csv") %>%
-  filter(week %in% weeks)  %>%
-  group_by(origin, destination, week, market_segment,type.origin,type.destination,from_member_status,to_member_status)%>%
-  reframe(weight = sum(weight))
-
-net2022 <- fread("df_2022.csv") %>%
-  filter(week %in% weeks)  %>%
-  group_by(origin, destination, week, market_segment,type.origin,type.destination,from_member_status,to_member_status)%>%
-  reframe(weight = sum(weight))
-
-fwrite(net2019 ,file = "sample_2019.csv")
-fwrite(net2020 ,file = "sample_2020.csv")
-fwrite(net2021 ,file = "sample_2021.csv")
-fwrite(net2022 ,file = "sample_2022.csv")
-
 
 
 # First we select the focal airports of our analysis. Note that we have only flights arriving/departing
@@ -86,12 +60,12 @@ preprocess_network <-
     if (remove_self_loops == T) {
       net <- net %>% filter(origin != destination)
     }
-    
+
     if (remove_AFIL_ZZZZ == T) {
       net <- net %>% filter(!origin %in% c("AFIL", "ZZZZ") &
                               !destination %in% c("AFIL", "ZZZZ"))
     }
-    
+
     return(net)
   }
 
@@ -109,19 +83,19 @@ create_nx_graph <- function(net, weighted = T) {
     net %>% select(origin, destination, weight) %>% as.data.frame() %>%
     rename(source = origin,
            target = destination)
-  
+
   net <- pd$DataFrame(net)
   if (weighted == T) {
     g <-
       nx$from_pandas_edgelist(net,
                               edge_attr = T,
                               create_using = nx$DiGraph)
-    
+
   } else {
     g <- nx$from_pandas_edgelist(net[, 1:2], create_using = nx$DiGraph)
-    
+
   }
-  
+
   return(g)
 }
 nodes_to_string <- function(nodes) {
@@ -205,13 +179,13 @@ create_scree_plot <- function(data, k_centers) {
   for (i in 1:k_centers) {
     kmeans_fit <- kmeans(data, centers = i, iter.max = 50)
     wcss[[i]] <- kmeans_fit$tot.withinss
-    
+
     if (i > 1) {
       ch_index[[i]] <-
         sk$metrics$calinski_harabasz_score(data, kmeans_fit$cluster)
     }
   }
-  
+
   # plot the WCSS values against the number of clusters
   plot(
     1:k_centers,
@@ -221,7 +195,7 @@ create_scree_plot <- function(data, k_centers) {
     xlab = "Number of clusters",
     ylab = "Within-cluster sum of squares"
   )
-  
+
   return(list(
     wcss = unlist(wcss),
     ch_index = unlist(ch_index)
@@ -287,7 +261,7 @@ generate_clusters <- function(data, kmeans_model) {
   data$cluster <- predict(kmeans_model, data[, 1:100])
   pca1 <- prcomp(data[, 1:100])$x[, 1]
   pca2 <- prcomp(data[, 1:100])$x[, 2]
-  
+
   # To circumvent this problem, we use a heuristic using PCA to reduce our signals to 2 dimensions
   # and fix the axes as such that the largest airport is in the ("LFTM") is in the
   # top right corner, as such that increase in pca dimension 1 relates to airports with
@@ -295,16 +269,16 @@ generate_clusters <- function(data, kmeans_model) {
   # on the pca dimension 1,as such that the least connective cluster get assigned 1, and the most
   # connective cluster 6. This approach works for six clusters, as the change in connectivity is nicely
   # captured by PCA dimension 1. With overlapping clusters, a different approach should be tried.
-  
+
   if (pca1[data$name == "LTFM"] < 0) {
     pca1 <- -pca1
   }
   if (pca2[data$name == "LTFM"] < 0) {
     pca2 <- -pca2
   }
-  
+
   plot(pca1, pca2, col = data$cluster)
-  
+
   clustering <- data[, 101:102] %>% left_join(
     data.frame(pca1, pca2, data$cluster) %>%
       arrange(pca1) %>% select(data.cluster) %>% unique() %>%
@@ -312,7 +286,7 @@ generate_clusters <- function(data, kmeans_model) {
       rename(cluster = data.cluster)
   ) %>%
     select(name, clust)
-  
+
   return(clustering)
 }
 
@@ -330,17 +304,17 @@ for (i in weeks) {
     generate_clusters(embeddings_2021[[i]], clust6_kmeans_models[[i]])
   net2022_clust <-
     generate_clusters(embeddings_2022[[i]], clust6_kmeans_models[[i]])
-  
+
   net2019_clust$week <- i
   net2020_clust$week <- i
   net2021_clust$week <- i
   net2022_clust$week <- i
-  
+
   net2019_clust$year <- 2019
   net2020_clust$year <- 2020
   net2021_clust$year <- 2021
   net2022_clust$year <- 2022
-  
+
   net2019_clust_list[[i]] <-
     net2019_clust
   net2020_clust_list[[i]] <-
@@ -538,7 +512,7 @@ neighborhod_indices_airport <-
       net <- net %>% rename(from = origin,
                             to = destination)
     }
-    
+
     # "Scheduled" is no longer used from 2019 onward. Data contained handfull of instances of Scheduled
     net <- net %>% filter(market_segment != "Scheduled")
     nb <- create_subgraph(net, nodes, hop)
@@ -655,7 +629,7 @@ compare_overlapped_distributions <- function(base, new, outcome) {
   unpaired.s2 <- sample2 %>% filter(!name %in% sample1$name)
   paired.s1 <- sample1 %>% filter(name %in% sample2$name)
   paired.s2 <- sample2 %>% filter(name %in% sample1$name)
-  
+
   res <-
     Partover.test(
       x1 = unpaired.s1 %>% select(all_of(outcome)) %>% unlist(),
@@ -664,10 +638,10 @@ compare_overlapped_distributions <- function(base, new, outcome) {
       x4 = paired.s2 %>% select(all_of(outcome)) %>% unlist(),
       conf.level = .95
     )
-  
-  
-  
-  
+
+
+
+
   return(
     data.frame(
       mean_new = sample1 %>% select(all_of(outcome)) %>% unlist() %>% mean(),
@@ -681,13 +655,13 @@ compare_overlapped_distributions <- function(base, new, outcome) {
       conf.ul = res$conf.int[2]
     )
   )
-  
+
 }
 
 create_ttest_table <- function(base, new, outcome, clust, weeks) {
   names(base)[names(base) == clust] <- "clust"
   names(new)[names(new) == clust] <- "clust"
-  
+
   if (outcome %>% length() > 1) {
     tab <- foreach(out = outcome, .combine = rbind) %do% {
       tab1 <- foreach(h = 1:3, .combine = rbind) %:%
@@ -707,7 +681,7 @@ create_ttest_table <- function(base, new, outcome, clust, weeks) {
           res
         }
       cbind(outcome = out, tab1)
-      
+
     }
   } else {
     tab <- foreach(h = 1:3, .combine = rbind) %:%
@@ -723,14 +697,14 @@ create_ttest_table <- function(base, new, outcome, clust, weeks) {
                      hop = h,
                      round(res, 4))
         res
-        
+
       }
-    
+
   }
-  
-  
+
+
   return(tab)
-  
+
 }
 
 
@@ -932,7 +906,7 @@ data_full <- rbind(cbind(data20, year = 2020),
 
 plot_region <- function(region, country_name, data, years = 2020:2022) {
   colour_breaks <- c(-3, -2,-1,-.5, 0, .5, 1)
-  
+
   colours <-
     c("red4",
       "red3",
@@ -941,7 +915,7 @@ plot_region <- function(region, country_name, data, years = 2020:2022) {
       "white",
       "dodgerblue2",
       "dodgerblue4")
-  
+
   ggplot(ne_countries(
     country = country_name,
     returnclass = "sf",
