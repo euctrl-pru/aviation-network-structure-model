@@ -1,5 +1,4 @@
 ##### Script for running analysis ####
-rm(list = ls())
 
 ##### Load librairies ####
 library(data.table)
