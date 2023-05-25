@@ -8,15 +8,12 @@ library(reticulate)
 library(foreach)
 library(fdm2id)
 library(pruatlas)
-set.seed(42)
-setwd(
-  "C:/Users/juulk/Vrije Universiteit Brussel/FacPE-PhD Juul Vossen - Documenten/Stage Eurocontrol/data/graphwave"
-)
-graphwave <- import(module = "graphwave")
-setwd(
-  "C:/Users/juulk/Vrije Universiteit Brussel/FacPE-PhD Juul Vossen - Documenten/Stage Eurocontrol/final_data"
-)
+library("rnaturalearth")
+library("Partiallyoverlapping")
 
+set.seed(42)
+
+graphwave <- import(module = "graphwave")
 np <- import("numpy")
 nx <- import("networkx")
 pd <- import("pandas")
@@ -652,8 +649,6 @@ net2022_nb_airport <-
 
 
 
-library("Partiallyoverlapping")
-
 compare_overlapped_distributions <- function(base, new, outcome) {
   sample1 <- new %>% mutate(name = paste(name, week))
   sample2 <- base %>% mutate(name = paste(name, week))
@@ -900,7 +895,7 @@ region_by_market_segment22 <- net2022 %>%
 #### Plot region ####
 airports <-
   fread(
-    "C:/Users/juulk/Vrije Universiteit Brussel/FacPE-PhD Juul Vossen - Documenten/Stage Eurocontrol/full dataset/airports_20221025.csv"
+    "airports_20221025.csv"
   )
 node.coords <- airports[,
                         c("ident", "latitude_deg", "longitude_deg", "type")]
@@ -936,7 +931,6 @@ data_full <- rbind(cbind(data20, year = 2020),
                    cbind(data21, year = 2021),
                    cbind(data22, year = 2022))
 
-library("rnaturalearth")
 plot_region <- function(region, country_name, data, years = 2020:2022) {
   colour_breaks <- c(-3, -2,-1,-.5, 0, .5, 1)
   
