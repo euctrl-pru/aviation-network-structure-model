@@ -7,16 +7,16 @@ This is the companion repository for the paper (Vossen et al. 2023) we
 submitted to the *2023 Integrated Communication, Navigation and
 Surveillance Conference (ICNS)*.
 
-Our work uses GraphWave (Donnat et al. 2018) to analyse the European
-Aviation network and to highlight the structural impacts on it by the
-COVID-19 pandemic.
+Our work uses GraphWave (Donnat et al. 2018) to analyse and highlight
+the structural impacts the impact of the COVID-19 pandemic on the
+European Aviation network.
 
-You can find here
+In this repository you can find:
 
-- a subset of the data, six weeks of flight list data in 2019, 2020,
+- a subset of the data: six weeks of flight list data for 2019, 2020,
   2021, and 2022
-- the code to reproduce the model for the paper (and the provided data
-  subset)
+- the code to reproduce the model of the paper using the sample dataset
+  above
 - the validation paper of the used model
 
 ## Setup
@@ -41,6 +41,8 @@ $ conda create -n aviation-network python=3.9 \
 Clone (or copy the relevant folder) [`graphwave` source
 code](https://github.com/snap-stanford/graphwave) in the parent
 directory of this project.
+
+This is the structure expected by the code:
 
 ``` text
 <somewhere>
@@ -73,94 +75,22 @@ similarity in networks, is implemented in Python.
 ``` r
 library(data.table)
 library(tidyverse)
-#> ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-#> ✔ dplyr     1.1.2     ✔ readr     2.1.4
-#> ✔ forcats   1.0.0     ✔ stringr   1.5.0
-#> ✔ ggplot2   3.4.2     ✔ tibble    3.2.0
-#> ✔ lubridate 1.8.0     ✔ tidyr     1.3.0
-#> ✔ purrr     1.0.1     
-#> ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-#> ✖ dplyr::between()     masks data.table::between()
-#> ✖ dplyr::filter()      masks stats::filter()
-#> ✖ dplyr::first()       masks data.table::first()
-#> ✖ lubridate::hour()    masks data.table::hour()
-#> ✖ lubridate::isoweek() masks data.table::isoweek()
-#> ✖ dplyr::lag()         masks stats::lag()
-#> ✖ dplyr::last()        masks data.table::last()
-#> ✖ lubridate::mday()    masks data.table::mday()
-#> ✖ lubridate::minute()  masks data.table::minute()
-#> ✖ lubridate::month()   masks data.table::month()
-#> ✖ lubridate::quarter() masks data.table::quarter()
-#> ✖ lubridate::second()  masks data.table::second()
-#> ✖ purrr::transpose()   masks data.table::transpose()
-#> ✖ lubridate::wday()    masks data.table::wday()
-#> ✖ lubridate::week()    masks data.table::week()
-#> ✖ lubridate::yday()    masks data.table::yday()
-#> ✖ lubridate::year()    masks data.table::year()
-#> ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
 library(foreach)
-#> 
-#> Attaching package: 'foreach'
-#> 
-#> The following objects are masked from 'package:purrr':
-#> 
-#>     accumulate, when
 library(fdm2id)
-#> Loading required package: arules
-#> Loading required package: Matrix
-#> 
-#> Attaching package: 'Matrix'
-#> 
-#> The following objects are masked from 'package:tidyr':
-#> 
-#>     expand, pack, unpack
-#> 
-#> 
-#> Attaching package: 'arules'
-#> 
-#> The following object is masked from 'package:dplyr':
-#> 
-#>     recode
-#> 
-#> The following objects are masked from 'package:base':
-#> 
-#>     abbreviate, write
-#> 
-#> Loading required package: arulesViz
-#> Loading required package: FactoMineR
-#> 
-#> Attaching package: 'fdm2id'
-#> 
-#> The following objects are masked from 'package:FactoMineR':
-#> 
-#>     CA, MCA, PCA
 library(pruatlas)
 library(rnaturalearth)
 library(Partiallyoverlapping)
 library(reticulate)
 library(here)
-#> here() starts at C:/Users/spi/dev/repos/aviation-network-structure-model
 library(flexclust)
-#> Loading required package: grid
-#> Loading required package: lattice
-#> Loading required package: modeltools
-#> Loading required package: stats4
-#> 
-#> Attaching package: 'modeltools'
-#> 
-#> The following object is masked from 'package:arules':
-#> 
-#>     info
 
 set.seed(42)
 
-
-
-
-
 # Load Python packages
 use_condaenv("aviation-network", required = TRUE)
-graphwave <- import_from_path(module = "graphwave", path = here("..", "graphwave", "graphwave"))
+graphwave <- import_from_path(
+  module = "graphwave",
+  path = here("..", "graphwave", "graphwave"))
 np <- import("numpy")
 nx <- import("networkx")
 pd <- import("pandas")
@@ -180,8 +110,8 @@ net2020 <- fread(file = here("data", "sample_2020.csv"))
 net2021 <- fread(file = here("data", "sample_2021.csv"))
 net2022 <- fread(file = here("data", "sample_2022.csv"))
 
-weeks <- net2019$week%>%unique()
-n_weeks <- weeks%>%length()
+weeks   <- net2019$week %>% unique()
+n_weeks <- weeks %>% length()
 
 extract_airports <- function(net) {
   airports_to <- net %>%
@@ -231,10 +161,9 @@ remove self loops (i.e., flights originating and arriving at the same
 airport).
 
 ``` r
-preprocess_network <-
-  function(net,
-           remove_self_loops = TRUE,
-           remove_AFIL_ZZZZ = TRUE) {
+preprocess_network <- function(net,
+                               remove_self_loops = TRUE,
+                               remove_AFIL_ZZZZ = TRUE) {
     if (remove_self_loops == TRUE) {
       net <- net %>% filter(origin != destination)
     }
@@ -260,11 +189,11 @@ algorithm on our networks. The GraphWave algorithm takes as input a
 graph object that we create using networkx.
 
 ``` r
-# label: create-networks
-# echo: true
 create_nx_graph <- function(net, weighted = TRUE) {
   net <-
-    net %>% select(origin, destination, weight) %>% as.data.frame() %>%
+    net %>% 
+    select(origin, destination, weight) %>%
+    as.data.frame() %>%
     rename(source = origin,
            target = destination)
   
@@ -307,7 +236,7 @@ for (wk in weeks) {
     graphwave$graphwave_alg(el,
                             seq(0, 100, length.out = 25),
                             taus = "auto",
-                            verbose = F)
+                            verbose = FALSE)
   embedding <- emb[[1]] %>% as.data.frame()
   embedding$name <- nodes_to_string(el$nodes)
   embeddings_2019[[wk]] <- embedding
@@ -324,11 +253,11 @@ embeddings_2020 <- list()
 for (wk in weeks) {
   #print(paste("Processing week", wk))
   el <- create_nx_graph(net2020 %>% filter(week == wk))
-  emb <-
-    graphwave$graphwave_alg(el,
-                            seq(0, 100, length.out = 25),
-                            taus = taus_2019[[wk]],
-                            verbose = F)
+  emb <- graphwave$graphwave_alg(
+    el,
+    seq(0, 100, length.out = 25),
+    taus = taus_2019[[wk]],
+    verbose = FALSE)
   embedding <- emb[[1]] %>% as.data.frame()
   embedding$name <- nodes_to_string(el$nodes)
   embeddings_2020[[wk]] <- embedding
@@ -404,8 +333,9 @@ create_scree_plot <- function(data, k_centers) {
 
 clustering_index <- list()
 for (i in weeks) {
-  clustering_index[[i]] <-
-    create_scree_plot(embeddings_2019[[i]][, 1:100], k_centers = 20)
+  clustering_index[[i]] <- create_scree_plot(
+    embeddings_2019[[i]][, 1:100],
+    k_centers = 20)
 }
 ```
 
@@ -422,8 +352,7 @@ data.frame(
   n_clust = rep(2:20, n_weeks),
   week = foreach(i = weeks, .combine = c) %do% {
     rep(i, 19)
-  }
-) %>%
+  }) %>%
   group_by(n_clust) %>%
   mutate(group_mean = mean(ch_index)) %>%
   group_by(week) %>%
@@ -513,7 +442,6 @@ generate_clusters <- function(data, kmeans_model) {
 ```
 
 ``` r
-
 clust6_kmeans_models <- list()
 for (i in weeks) {
   clust6_kmeans_models[[i]] <-
@@ -545,39 +473,11 @@ for (i in weeks) {
   net2021_clust$year <- 2021
   net2022_clust$year <- 2022
   
-  net2019_clust_list[[i]] <-
-    net2019_clust
-  net2020_clust_list[[i]] <-
-    net2020_clust
-  net2021_clust_list[[i]] <-
-    net2021_clust
-  net2022_clust_list[[i]] <-
-    net2022_clust
+  net2019_clust_list[[i]] <- net2019_clust
+  net2020_clust_list[[i]] <- net2020_clust
+  net2021_clust_list[[i]] <- net2021_clust
+  net2022_clust_list[[i]] <- net2022_clust
 }
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
-#> Joining with `by = join_by(cluster)`
 
 net2019_clust <- do.call(rbind, net2019_clust_list)
 net2020_clust <- do.call(rbind, net2020_clust_list)
@@ -594,11 +494,18 @@ setting is used, has a heat signature related to it.
 
 ``` r
 airports <- fread(here("data", "airports_20221025.csv"))
-node.coords <- airports[, c("ident", "latitude_deg", "longitude_deg", "type")]
+node.coords <- airports[, c("ident",
+                            "latitude_deg",
+                            "longitude_deg",
+                            "type")]
 net <- net2019%>%filter(week == weeks[1])
 
 el <- create_nx_graph(net)
-emb <- graphwave$graphwave_alg(el,seq(0,100,length.out = 25),taus = "auto",verbose = TRUE)
+emb <- graphwave$graphwave_alg(
+  el,
+  seq(0,100,length.out = 25),
+  taus = "auto",
+  verbose = TRUE)
 
 embedding <- emb[[1]]%>%as.data.frame()
 embedding$name <- nodes_to_string(el$nodes)
@@ -617,40 +524,50 @@ represented by the columns). The following code allows us to create a
 plot that shows the heat that is being propagated from a focal airport.
 
 ``` r
-heat_by_airport <- heat_df%>%filter(name %in% c("LIBC","LGSM",'EGTE',"LIMF","EGBB","EGKK"))%>%reshape2::melt()
-#> Using name as id variables
-heat_by_airport$variable <- heat_by_airport$variable%>%as.character()%>%as.numeric()
+heat_by_airport <- heat_df %>%
+  filter(name %in% c("LIBC","LGSM",'EGTE',"LIMF","EGBB","EGKK")) %>%
+  reshape2::melt()
+heat_by_airport$variable <- heat_by_airport$variable %>%
+  as.character() %>%
+  as.numeric()
 
-heat_by_airport <- heat_by_airport%>%left_join(data.frame(variable = 0:(nrow(heat_df)-1),
-                                                          target = heat_df$name))%>%
+heat_by_airport <- heat_by_airport %>%
+  left_join(data.frame(variable = 0:(nrow(heat_df)-1),
+                       target = heat_df$name)) %>%
   rename(focal_airport = name)
-#> Joining with `by = join_by(variable)`
 
 plot_heat <- function(df,what = "EU"){
   world <- ne_countries(scale = "small", returnclass = "sf")
   data = left_join(node.coords,df,by=c("ident" = "target"))
   
   p <- ggplot(world) +
-  geom_sf(fill = "white") +
-  geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
-             data%>%
-               filter(!is.na(value) & value <= .35 & value > .05),
-             size=1,alpha = .8) + 
-  geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
-             data%>%
-               filter(!is.na(value) & value <= .45 & value > .35),
-             size=1,alpha = 1) + 
-  geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
-             data%>%
-               filter(!is.na(value) & value <= .65 & value > .45),
-             size=1,alpha = 1) + 
-  geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
-             data%>%
-               filter(!is.na(value) & value > .65),
-             size=1) + scale_color_gradient2(high="red",mid="yellow",low = "black",midpoint = .5)+ 
-  facet_wrap(~focal_airport)+theme_minimal()+
-  labs(color = "heat")+
-  theme(panel.background = element_rect(fill = "grey"),legend.position = "top")
+    geom_sf(fill = "white") +
+    geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
+               data %>%
+                 filter(!is.na(value) & value <= .35 & value > .05),
+               size=1,alpha = .8) + 
+    geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
+               data %>%
+                 filter(!is.na(value) & value <= .45 & value > .35),
+               size=1,alpha = 1) + 
+    geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
+               data %>%
+                 filter(!is.na(value) & value <= .65 & value > .45),
+               size=1,alpha = 1) + 
+    geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
+               data %>%
+                 filter(!is.na(value) & value > .65),
+               size=1) +
+    scale_color_gradient2(
+      high="red",
+      mid="yellow",
+      low = "black",
+      midpoint = .5) + 
+    facet_wrap(~ focal_airport) + 
+    theme_minimal() +
+    labs(color = "heat") +
+    theme(panel.background = element_rect(fill = "grey"),
+          legend.position = "top")
   
   if(what == "EU"){
     p + coord_sf(xlim = c(-25,50), ylim = c(35,70), expand = FALSE)
@@ -664,9 +581,10 @@ Specifically, the code normalizes the energy to show which airports have
 are the most strongly connected (i.e., receive the most energy).
 
 ``` r
-heat_EGKK <- heat_by_airport%>%
-  filter(focal_airport == "EGKK")%>%
-  mutate(value = (value - min(value))/(max(value) - min(value)))%>%arrange(desc(value))
+heat_EGKK <- heat_by_airport %>%
+  filter(focal_airport == "EGKK") %>%
+  mutate(value = (value - min(value)) / (max(value) - min(value))) %>%
+  arrange(desc(value))
 
 plot_heat(heat_EGKK,what = "EU")
 ```
@@ -683,8 +601,9 @@ Note that when we include multiple airports, the normalization now
 compares the amount heat propagated between the airports.
 
 ``` r
-heat_norm <- heat_by_airport%>%
-  mutate(value = (value - min(value))/(max(value) - min(value)))%>%arrange(desc(value))
+heat_norm <- heat_by_airport %>%
+  mutate(value = (value - min(value)) / (max(value) - min(value))) %>%
+  arrange(desc(value))
 
 plot_heat(heat_norm,what = "EU")
 ```
@@ -713,18 +632,19 @@ find_clust_diff <- function(net1, net2, what, type = "sum") {
   net2_full <-
     data.frame(name = sort(rep(net2$name %>% unique(), n_weeks)),
                week = rep(weeks, net2$name %>% unique() %>% length()))
-  tab_base <-
-    net1_full %>% left_join(net1[, c("name", "clust", "week")]) %>%
+  tab_base <- net1_full %>%
+    left_join(net1[, c("name", "clust", "week")]) %>%
     replace(is.na(.), 0) %>%
     select(name, clust) %>%
     table()
-  tab_new <-
-    net2_full %>% left_join(net2[, c("name", "clust", "week")]) %>%
+  tab_new <- net2_full %>%
+    left_join(net2[, c("name", "clust", "week")]) %>%
     replace(is.na(.), 0) %>%
     select(name, clust) %>%
     table()
   if (what == "region") {
-    res <- tab_base %>% as.data.frame() %>%
+    res <- tab_base %>%
+      as.data.frame() %>%
       rename(Freq1 = Freq) %>%
       full_join(tab_new %>% as.data.frame() %>% rename(Freq2 = Freq)) %>%
       replace(is.na(.), 0) %>%
@@ -778,11 +698,8 @@ airport_diff <- find_clust_diff(
   net2022_clust %>% filter(name %in% airports22),
   "airport",
   type = "sum"
-) %>%
+  ) %>%
   arrange(diff)
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, clust)`
 
 
 regional_diff <- find_clust_diff(
@@ -792,9 +709,6 @@ regional_diff <- find_clust_diff(
   type = "sum"
 ) %>%
   arrange(diff)
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, clust)`
 
 head(airport_diff)
 #> # A tibble: 6 × 4
@@ -838,9 +752,6 @@ find_clust_diff(net2019_clust%>%filter(name %in% airports19),
   scale_x_continuous(breaks=0:6,minor_breaks = 0:6)+scale_y_continuous(breaks=0:6,minor_breaks = 0:6)+
   xlab("Average role in 2019")+ylab("Average role in 2022")+theme_minimal()+
   theme(legend.position = "none")
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, clust)`
 ```
 
 ![](README_files/figure-gfm/diff-plot-1.png)<!-- -->
@@ -850,7 +761,10 @@ shows changes in cluster membership for airports in a given region.
 
 ``` r
 airports <- fread(here("data", "airports_20221025.csv"))
-node.coords <- airports[, c("ident", "latitude_deg", "longitude_deg", "type")]
+node.coords <- airports[, c("ident",
+                            "latitude_deg",
+                            "longitude_deg",
+                            "type")]
 
 data20 <-
   find_clust_diff(
@@ -859,9 +773,6 @@ data20 <-
     "airport",
   ) %>%
   left_join(node.coords, by = c("name" = "ident"))
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, clust)`
 data21 <-
   find_clust_diff(
     net2019_clust %>% filter(name %in% airports19),
@@ -869,9 +780,6 @@ data21 <-
     "airport"
   ) %>%
   left_join(node.coords, by = c("name" = "ident"))
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, clust)`
 data22 <-
   find_clust_diff(
     net2019_clust %>% filter(name %in% airports19),
@@ -879,9 +787,6 @@ data22 <-
     "airport"
   ) %>%
   left_join(node.coords, by = c("name" = "ident"))
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, week)`
-#> Joining with `by = join_by(name, clust)`
 data_full <- rbind(cbind(data20, year = 2020),
                    cbind(data21, year = 2021),
                    cbind(data22, year = 2022))
@@ -1082,22 +987,11 @@ full_ms <- net2019 %>%
     e_full = paste(from, to) %>% unique() %>% length(),
     w_full = sum(weight)
   )
-#> `summarise()` has grouped output by 'week'. You can override using the
-#> `.groups` argument.
 
 rbind(
   neighborhod_indices_airport("EHAM", net2019, full, full_ms, hop = 1)%>%mutate(hop=1),
   neighborhod_indices_airport("EHAM", net2019, full, full_ms, hop = 2)%>%mutate(hop=2),
   neighborhod_indices_airport("EHAM", net2019, full, full_ms, hop = 3)%>%mutate(hop=3))
-#> Joining with `by = join_by(week)`
-#> `summarise()` has grouped output by 'week'. You can override using the
-#> `.groups` argument.
-#> Joining with `by = join_by(week)`
-#> `summarise()` has grouped output by 'week'. You can override using the
-#> `.groups` argument.
-#> Joining with `by = join_by(week)`
-#> `summarise()` has grouped output by 'week'. You can override using the
-#> `.groups` argument.
 #> # A tibble: 162 × 11
 #>     week     v     e     w avg_weights perc_edges perc_vertices perc_weights
 #>    <int> <int> <int> <int>       <dbl>      <dbl>         <dbl>        <dbl>
@@ -1121,25 +1015,18 @@ include a pre-computed dataset for each of the weeks including in this
 sample which we join together with the airport classifications.
 
 ``` r
-#|label: load-sample-nb
-#|include: true
-
 net2019_nb_airport <- fread(here("data", "sample_2019_nb.csv")) %>% 
   left_join(net2019_clust) %>%
   filter(!is.na(clust))
-#> Joining with `by = join_by(week, name, year)`
 net2020_nb_airport <- fread(here("data", "sample_2020_nb.csv")) %>% 
   left_join(net2020_clust) %>%
   filter(!is.na(clust))
-#> Joining with `by = join_by(week, name, year)`
 net2021_nb_airport <- fread(here("data", "sample_2021_nb.csv")) %>% 
   left_join(net2021_clust) %>%
   filter(!is.na(clust))
-#> Joining with `by = join_by(week, name, year)`
 net2022_nb_airport <- fread(here("data", "sample_2022_nb.csv")) %>% 
   left_join(net2022_clust) %>%
   filter(!is.na(clust))
-#> Joining with `by = join_by(week, name, year)`
 ```
 
 The basis for the analysis is the partially overlapping samples t-test.
@@ -1166,9 +1053,6 @@ compare_overlapped_distributions <- function(base, new, outcome) {
       x4 = paired.s2 %>% select(all_of(outcome)) %>% unlist(),
       conf.level = .95
     )
-  
-  
-  
   
   return(
     data.frame(
@@ -1271,10 +1155,6 @@ ttest_19_22 <- create_ttest_table(
 ```
 
 ``` r
-#|label: performance-plots
-#|echo: false
-#|warning: false
-
 ttest_19_20 %>%
   ggplot(aes(
     x = factor(week),
@@ -1308,7 +1188,7 @@ ttest_19_20 %>%
   labs(title = "Performance comparisson 2019 and 2020")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+![](README_files/figure-gfm/performance-plots-1.png)<!-- -->
 
 ``` r
 
@@ -1345,7 +1225,7 @@ ttest_19_21 %>%
   labs(title = "Performance comparisson 2019 and 2021")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-27-2.png)<!-- -->
+![](README_files/figure-gfm/performance-plots-2.png)<!-- -->
 
 ``` r
 
@@ -1382,7 +1262,7 @@ ttest_19_22 %>%
   labs(title = "Performance comparisson 2019 and 2022")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-27-3.png)<!-- -->
+![](README_files/figure-gfm/performance-plots-3.png)<!-- -->
 
 ## References
 

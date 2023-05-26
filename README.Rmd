@@ -5,10 +5,12 @@ bibliography: bibliography.bib
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-```{r, include = FALSE}
+```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE 
 )
 ```
 
@@ -39,7 +41,7 @@ Note that we use Python 3.9 even if the GraphWave repo states it was developed i
 So to make `graphwave` import-able we have to fix the print statements in
 `graphwave/utils/graph_tools.py` from `print "message"` to `print("message")`
 
-```{shell, eval=FALSE}
+```{shell conda-create-env, eval=FALSE}
 $ conda create -n aviation-network python=3.9 \
     numpy networkx pandas scikit-learn pillow=9.0.0 \
     matplotlib seaborn pyemd pygsp
@@ -48,6 +50,8 @@ $ conda create -n aviation-network python=3.9 \
 Clone (or copy the relevant folder)
 [`graphwave` source code](https://github.com/snap-stanford/graphwave)
 in the parent directory of this project.
+
+This is the structure expected by the code:
 
 ```text
 <somewhere>
@@ -78,11 +82,7 @@ This sample code uses a combination of R and Python; GraphWave [@donnat2018], th
 unsupervised method for learning node embeddings based on structural similarity in networks,
 is implemented in Python.
 
-```{r}
-#| label: load-packages
-#| warning: false
-#| include: true
-
+```{r load-packages}
 library(data.table)
 library(tidyverse)
 library(foreach)
@@ -96,33 +96,27 @@ library(flexclust)
 
 set.seed(42)
 
-
-
-
-
 # Load Python packages
 use_condaenv("aviation-network", required = TRUE)
-graphwave <- import_from_path(module = "graphwave", path = here("..", "graphwave", "graphwave"))
+graphwave <- import_from_path(
+  module = "graphwave",
+  path = here("..", "graphwave", "graphwave"))
 np <- import("numpy")
 nx <- import("networkx")
 pd <- import("pandas")
 sk <- import("sklearn")
-
 ```
 
 The data consist of origin-destination flight data for flights departing from, or arriving at airports in EUROCONTROL member states of six weeks (i.e, week 26 to 31) in 2019, 2020, 2021 and 2022 is provided. Each flight is classified using the statfor market segment classification (i.e., Low-cost, Mainline, Regional, Business, Non-scheduled, Military, and Other).
 
-```{r}
-#| label: load-data
-#| warning: false
-#| echo: true
+```{r load-data}
 net2019 <- fread(file = here("data", "sample_2019.csv"))
 net2020 <- fread(file = here("data", "sample_2020.csv"))
 net2021 <- fread(file = here("data", "sample_2021.csv"))
 net2022 <- fread(file = here("data", "sample_2022.csv"))
 
-weeks <- net2019$week%>%unique()
-n_weeks <- weeks%>%length()
+weeks   <- net2019$week %>% unique()
+n_weeks <- weeks %>% length()
 
 extract_airports <- function(net) {
   airports_to <- net %>%
@@ -149,14 +143,10 @@ head(net2019)
 
 Before running the analysis we remove entries containing airports with code AFIL and ZZZZ, as these codes do not relate to actual airports, but are unique identifiers of flight plans that are received in-flight, and unidentified origins. Leaving these connections in the network can result in artifical connections between otherwise unconnected regions (i.e., two airports sharing the same neighbor ZZZ or AFIL). Additionally, as we are interested in connectivity between airports, we remove self loops (i.e., flights originating and arriving at the same airport).
 
-```{r}
-#| label: preprocess-data
-#| echo: true
-
-preprocess_network <-
-  function(net,
-           remove_self_loops = TRUE,
-           remove_AFIL_ZZZZ = TRUE) {
+```{r preprocess-data}
+preprocess_network <- function(net,
+                               remove_self_loops = TRUE,
+                               remove_AFIL_ZZZZ = TRUE) {
     if (remove_self_loops == TRUE) {
       net <- net %>% filter(origin != destination)
     }
@@ -181,12 +171,12 @@ net2022 <- preprocess_network(net2022)
 
 The first step in the analysis consists of running the GraphWave algorithm on our networks. The GraphWave algorithm takes as input a graph object that we create using networkx.
 
-```{r}
-# label: create-networks
-# echo: true
+```{r create-networks}
 create_nx_graph <- function(net, weighted = TRUE) {
   net <-
-    net %>% select(origin, destination, weight) %>% as.data.frame() %>%
+    net %>% 
+    select(origin, destination, weight) %>%
+    as.data.frame() %>%
     rename(source = origin,
            target = destination)
   
@@ -215,9 +205,7 @@ nodes_to_string <- function(nodes) {
 
 Starting with 2019, we create an embedding of each week in our dataset. As 2019 will be our reference for the study, we set `taus` option of the GraphWave algoritm to "auto". This allows the algorithm to find the optimal signal to propagate through the network.
 
-```{r}
-#| label: create-baseline-embeddings
-#| echo: true
+```{r create-baseline-embeddings}
 embeddings_2019 <- list()
 taus_2019 <- list()
 
@@ -228,7 +216,7 @@ for (wk in weeks) {
     graphwave$graphwave_alg(el,
                             seq(0, 100, length.out = 25),
                             taus = "auto",
-                            verbose = F)
+                            verbose = FALSE)
   embedding <- emb[[1]] %>% as.data.frame()
   embedding$name <- nodes_to_string(el$nodes)
   embeddings_2019[[wk]] <- embedding
@@ -238,20 +226,16 @@ for (wk in weeks) {
 
 For the networks in the weeks in 2020-2022, we now use the optimal tau values from the baseline network. This way we can compare our target weeks under the same conditions as our reference weeks.
 
-```{r}
-#| label: create-target-embeddings
-#| echo: true
-#| warning: false
-
+```{r create-target-embeddings}
 embeddings_2020 <- list()
 for (wk in weeks) {
   #print(paste("Processing week", wk))
   el <- create_nx_graph(net2020 %>% filter(week == wk))
-  emb <-
-    graphwave$graphwave_alg(el,
-                            seq(0, 100, length.out = 25),
-                            taus = taus_2019[[wk]],
-                            verbose = F)
+  emb <- graphwave$graphwave_alg(
+    el,
+    seq(0, 100, length.out = 25),
+    taus = taus_2019[[wk]],
+    verbose = FALSE)
   embedding <- emb[[1]] %>% as.data.frame()
   embedding$name <- nodes_to_string(el$nodes)
   embeddings_2020[[wk]] <- embedding
@@ -286,14 +270,13 @@ for (wk in weeks) {
 }
 ```
 
+
+
 ### Step 2: K-means clustering
 
 To find the structural roles in the network, we first run a k-means clustering algorithm to find clusters of airports that have a similar heat propagation signature. We make use of the Calinski-Harabasz index to evaluate the optimal number of clusters.
 
-```{r}
-#| label: ch-index
-#| warning: false
-#| echo: true
+```{r ch-index}
 create_scree_plot <- function(data, k_centers) {
   wcss <- list()
   ch_index <- list()
@@ -327,24 +310,21 @@ create_scree_plot <- function(data, k_centers) {
 
 clustering_index <- list()
 for (i in weeks) {
-  clustering_index[[i]] <-
-    create_scree_plot(embeddings_2019[[i]][, 1:100], k_centers = 20)
+  clustering_index[[i]] <- create_scree_plot(
+    embeddings_2019[[i]][, 1:100],
+    k_centers = 20)
 }
 
 clust <- do.call(rbind, clustering_index)
 ```
 
-```{r}
-#| label: ch-plot
-#| warning: false
-#| echo: true
+```{r ch-plot}
 data.frame(
   ch_index = do.call(c, clust[, 2]),
   n_clust = rep(2:20, n_weeks),
   week = foreach(i = weeks, .combine = c) %do% {
     rep(i, 19)
-  }
-) %>%
+  }) %>%
   group_by(n_clust) %>%
   mutate(group_mean = mean(ch_index)) %>%
   group_by(week) %>%
@@ -359,11 +339,7 @@ data.frame(
 
 Even these 6 consecutive weeks show variability in the optimal number of clusters. To find the optimal number of clusters for this timeperiod we rank each clustering solution based on its ch index score and average each rank score across the weeks.
 
-```{r}
-#| label: rank-clust
-#| warning: false
-#| echo: true
-
+```{r rank-clust}
 data.frame(
   ch_index = do.call(c, clust[, 2]),
   n_clust = rep(2:20, n_weeks),
@@ -385,11 +361,7 @@ Next we use the optimal number of clusters we create a model for each week that 
 
 Clusters are then renamed based on their occurrence on the pca dimension 1, as such that the cluster containing the least connective airports get assigned 1, and the cluster with the most connective airports are assigned 6. This approach works for six clusters, as the change in connectivity is nicely captured by PCA dimension 1. Note that with overlapping clusters, a different approach should be tried.
 
-```{r}
-#| label: generate-clusters-1
-#| warning: false
-#| echo: true 
-
+```{r generate-clusters-1}
 generate_clusters <- function(data, kmeans_model) {
   data$cluster <- predict(kmeans_model, data[, 1:100])
   pca1 <- prcomp(data[, 1:100])$x[, 1]
@@ -415,12 +387,7 @@ generate_clusters <- function(data, kmeans_model) {
 
 ```
 
-```{r}
-#| label: generate-clusters-2
-#| warning: false
-#| echo: true
-
-
+```{r generate-clusters-2}
 clust6_kmeans_models <- list()
 for (i in weeks) {
   clust6_kmeans_models[[i]] <-
@@ -452,14 +419,10 @@ for (i in weeks) {
   net2021_clust$year <- 2021
   net2022_clust$year <- 2022
   
-  net2019_clust_list[[i]] <-
-    net2019_clust
-  net2020_clust_list[[i]] <-
-    net2020_clust
-  net2021_clust_list[[i]] <-
-    net2021_clust
-  net2022_clust_list[[i]] <-
-    net2022_clust
+  net2019_clust_list[[i]] <- net2019_clust
+  net2020_clust_list[[i]] <- net2020_clust
+  net2021_clust_list[[i]] <- net2021_clust
+  net2022_clust_list[[i]] <- net2022_clust
 }
 
 net2019_clust <- do.call(rbind, net2019_clust_list)
@@ -472,16 +435,20 @@ net2022_clust <- do.call(rbind, net2022_clust_list)
 
 To visualize the heat propagation for a given airport in a given week, we need to access the heat signatures that are stored in the graphwave embedding. Each tau given to the algorithm, or two if the default setting is used, has a heat signature related to it.
 
-```{r}
-#| label: heat-df
-#| echo: true
-#| warning: false
+```{r heat-df}
 airports <- fread(here("data", "airports_20221025.csv"))
-node.coords <- airports[, c("ident", "latitude_deg", "longitude_deg", "type")]
+node.coords <- airports[, c("ident",
+                            "latitude_deg",
+                            "longitude_deg",
+                            "type")]
 net <- net2019%>%filter(week == weeks[1])
 
 el <- create_nx_graph(net)
-emb <- graphwave$graphwave_alg(el,seq(0,100,length.out = 25),taus = "auto",verbose = TRUE)
+emb <- graphwave$graphwave_alg(
+  el,
+  seq(0,100,length.out = 25),
+  taus = "auto",
+  verbose = TRUE)
 
 embedding <- emb[[1]]%>%as.data.frame()
 embedding$name <- nodes_to_string(el$nodes)
@@ -496,16 +463,17 @@ heat_df$name <- nodes_to_string(el$nodes)
 
 Each row in the data.frame represent the amount of energy that is sent from a given airport to each other airport in the network (which are represented by the columns). The following code allows us to create a plot that shows the heat that is being propagated from a focal airport.
 
-```{r}
-#| label: heat-plot
-#| echo: true
-#| warning: false
+```{r heat-plot}
+heat_by_airport <- heat_df %>%
+  filter(name %in% c("LIBC","LGSM",'EGTE',"LIMF","EGBB","EGKK")) %>%
+  reshape2::melt()
+heat_by_airport$variable <- heat_by_airport$variable %>%
+  as.character() %>%
+  as.numeric()
 
-heat_by_airport <- heat_df%>%filter(name %in% c("LIBC","LGSM",'EGTE',"LIMF","EGBB","EGKK"))%>%reshape2::melt()
-heat_by_airport$variable <- heat_by_airport$variable%>%as.character()%>%as.numeric()
-
-heat_by_airport <- heat_by_airport%>%left_join(data.frame(variable = 0:(nrow(heat_df)-1),
-                                                          target = heat_df$name))%>%
+heat_by_airport <- heat_by_airport %>%
+  left_join(data.frame(variable = 0:(nrow(heat_df)-1),
+                       target = heat_df$name)) %>%
   rename(focal_airport = name)
 
 plot_heat <- function(df,what = "EU"){
@@ -513,26 +481,33 @@ plot_heat <- function(df,what = "EU"){
   data = left_join(node.coords,df,by=c("ident" = "target"))
   
   p <- ggplot(world) +
-  geom_sf(fill = "white") +
-  geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
-             data%>%
-               filter(!is.na(value) & value <= .35 & value > .05),
-             size=1,alpha = .8) + 
-  geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
-             data%>%
-               filter(!is.na(value) & value <= .45 & value > .35),
-             size=1,alpha = 1) + 
-  geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
-             data%>%
-               filter(!is.na(value) & value <= .65 & value > .45),
-             size=1,alpha = 1) + 
-  geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
-             data%>%
-               filter(!is.na(value) & value > .65),
-             size=1) + scale_color_gradient2(high="red",mid="yellow",low = "black",midpoint = .5)+ 
-  facet_wrap(~focal_airport)+theme_minimal()+
-  labs(color = "heat")+
-  theme(panel.background = element_rect(fill = "grey"),legend.position = "top")
+    geom_sf(fill = "white") +
+    geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
+               data %>%
+                 filter(!is.na(value) & value <= .35 & value > .05),
+               size=1,alpha = .8) + 
+    geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
+               data %>%
+                 filter(!is.na(value) & value <= .45 & value > .35),
+               size=1,alpha = 1) + 
+    geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
+               data %>%
+                 filter(!is.na(value) & value <= .65 & value > .45),
+               size=1,alpha = 1) + 
+    geom_point(aes(y = latitude_deg, x = longitude_deg,col=value),
+               data %>%
+                 filter(!is.na(value) & value > .65),
+               size=1) +
+    scale_color_gradient2(
+      high="red",
+      mid="yellow",
+      low = "black",
+      midpoint = .5) + 
+    facet_wrap(~ focal_airport) + 
+    theme_minimal() +
+    labs(color = "heat") +
+    theme(panel.background = element_rect(fill = "grey"),
+          legend.position = "top")
   
   if(what == "EU"){
     p + coord_sf(xlim = c(-25,50), ylim = c(35,70), expand = FALSE)
@@ -545,13 +520,11 @@ plot_heat <- function(df,what = "EU"){
 
 Specifically, the code normalizes the energy to show which airports have are the most strongly connected (i.e., receive the most energy).
 
-```{r}
-#| label: single-airport
-#| echoes: false
-#| warning: false
-heat_EGKK <- heat_by_airport%>%
-  filter(focal_airport == "EGKK")%>%
-  mutate(value = (value - min(value))/(max(value) - min(value)))%>%arrange(desc(value))
+```{r single-airport}
+heat_EGKK <- heat_by_airport %>%
+  filter(focal_airport == "EGKK") %>%
+  mutate(value = (value - min(value)) / (max(value) - min(value))) %>%
+  arrange(desc(value))
 
 plot_heat(heat_EGKK,what = "EU")
 plot_heat(heat_EGKK,what = "world")
@@ -560,12 +533,10 @@ plot_heat(heat_EGKK,what = "world")
 
 Note that when we include multiple airports, the normalization now compares the amount heat propagated between the airports.
 
-```{r}
-#| label: multiple-airports
-#| echoes: false
-#| warning: false
-heat_norm <- heat_by_airport%>%
-  mutate(value = (value - min(value))/(max(value) - min(value)))%>%arrange(desc(value))
+```{r multiple-airports}
+heat_norm <- heat_by_airport %>%
+  mutate(value = (value - min(value)) / (max(value) - min(value))) %>%
+  arrange(desc(value))
 
 plot_heat(heat_norm,what = "EU")
 plot_heat(heat_norm,what = "world")
@@ -576,11 +547,7 @@ plot_heat(heat_norm,what = "world")
 
 Next, we can use our classified airports to find changes in cluster membership between two years. For this we use a function that calculates the difference of the average cluster membership for the baseline year and the target year.
 
-```{r}
-#| label: cluster-diff
-#| warning: false
-#| include: true
-
+```{r cluster-diff}
 find_clust_diff <- function(net1, net2, what, type = "sum") {
 
   net1_full <-
@@ -589,18 +556,19 @@ find_clust_diff <- function(net1, net2, what, type = "sum") {
   net2_full <-
     data.frame(name = sort(rep(net2$name %>% unique(), n_weeks)),
                week = rep(weeks, net2$name %>% unique() %>% length()))
-  tab_base <-
-    net1_full %>% left_join(net1[, c("name", "clust", "week")]) %>%
+  tab_base <- net1_full %>%
+    left_join(net1[, c("name", "clust", "week")]) %>%
     replace(is.na(.), 0) %>%
     select(name, clust) %>%
     table()
-  tab_new <-
-    net2_full %>% left_join(net2[, c("name", "clust", "week")]) %>%
+  tab_new <- net2_full %>%
+    left_join(net2[, c("name", "clust", "week")]) %>%
     replace(is.na(.), 0) %>%
     select(name, clust) %>%
     table()
   if (what == "region") {
-    res <- tab_base %>% as.data.frame() %>%
+    res <- tab_base %>%
+      as.data.frame() %>%
       rename(Freq1 = Freq) %>%
       full_join(tab_new %>% as.data.frame() %>% rename(Freq2 = Freq)) %>%
       replace(is.na(.), 0) %>%
@@ -648,16 +616,13 @@ find_clust_diff <- function(net1, net2, what, type = "sum") {
 }
 ```
 
-```{r}
-#| label: clust-diff-2
-#| warning: false
-#| include: true
+```{r clust-diff-2}
 airport_diff <- find_clust_diff(
   net2019_clust %>% filter(name %in% airports19),
   net2022_clust %>% filter(name %in% airports22),
   "airport",
   type = "sum"
-) %>%
+  ) %>%
   arrange(diff)
 
 
@@ -675,11 +640,7 @@ head(regional_diff)
 
 We can then use these outputs to compare change in connectivity between two adjacent years. Note that this plot differs from the plot used in our paper, as we are now only focusing on a smaller period of time.
 
-```{r}
-#| label: diff-plot
-#| echo: true
-#| warning: false
-
+```{r diff-plot}
 top3_incr <- regional_diff[order(regional_diff$diff,decreasing = TRUE),]$region[1:3]
 top3_decr <- regional_diff$region[2:4] #excluding Ukraine
 
@@ -695,18 +656,16 @@ find_clust_diff(net2019_clust%>%filter(name %in% airports19),
   scale_x_continuous(breaks=0:6,minor_breaks = 0:6)+scale_y_continuous(breaks=0:6,minor_breaks = 0:6)+
   xlab("Average role in 2019")+ylab("Average role in 2022")+theme_minimal()+
   theme(legend.position = "none")
-
 ```
 
 Additionally, we can also use the output to create a regional plot that shows changes in cluster membership for airports in a given region.
 
-```{r}
-#| label: regional-plot
-#| include: true
-#| warning: false
-
+```{r regional-plot}
 airports <- fread(here("data", "airports_20221025.csv"))
-node.coords <- airports[, c("ident", "latitude_deg", "longitude_deg", "type")]
+node.coords <- airports[, c("ident",
+                            "latitude_deg",
+                            "longitude_deg",
+                            "type")]
 
 data20 <-
   find_clust_diff(
@@ -779,18 +738,13 @@ plot_region <- function(region, country_name, data, years = 2020:2022) {
 }
 ```
 
-```{r}
-#| label: regional-plots
-#| echo: true
-#| warning: false
-
+```{r regional-plots}
 plot_region("LI", "Italy", data_full) + theme(legend.position = "top") +
   ylab("") + xlab("")
 plot_region("EG", "United Kingdom", data_full) + theme(legend.position = "top") +
   ylab("") + xlab("") + coord_sf(xlim = c(-12, 3))
 plot_region("LF", "France", data_full) + theme(legend.position = "top") +
   ylab("") + xlab("") + coord_sf(xlim = c(-5, 10),ylim = c(41,51))
-
 ```
 
 ### Step 5: Studying cluster performance
@@ -798,8 +752,6 @@ plot_region("LF", "France", data_full) + theme(legend.position = "top") +
 To study cluster performance we first need to compute the individual coverage of the N-Hop neighborhood of each airport for each week in our baseline and target years.
 
 ```{r}
-#| include: true
-#| warning: false
 neighborhod_indices_airport <-
   function(nodes, net, full, full_ms, hop = 1) {
     create_subgraph <- function(el, nodes, hop) {
@@ -931,10 +883,7 @@ rbind(
 
 This is a computationally intensive process, as for instance the 2019 network contains 870 airports of interest. For the sake of brevity, we include a pre-computed dataset for each of the weeks including in this sample which we join together with the airport classifications.
 
-```{r}
-#|label: load-sample-nb
-#|include: true
-
+```{r load-sample-nb}
 net2019_nb_airport <- fread(here("data", "sample_2019_nb.csv")) %>% 
   left_join(net2019_clust) %>%
   filter(!is.na(clust))
@@ -947,16 +896,11 @@ net2021_nb_airport <- fread(here("data", "sample_2021_nb.csv")) %>%
 net2022_nb_airport <- fread(here("data", "sample_2022_nb.csv")) %>% 
   left_join(net2022_clust) %>%
   filter(!is.na(clust))
-
 ```
 
 The basis for the analysis is the partially overlapping samples t-test. This test allows us to specify which cases of the samples that we want to compare exist in both samples (i.e., an airport that was in cluster 6 that is still in cluster 6) and which cases do not exist in both samples (i.e., an airport that was in cluster 6 that dropped to cluster 5 or vice versa).
 
-```{r}
-#| label: part-ttest
-#| warning: false
-#| include: true
-
+```{r part-ttest}
 compare_overlapped_distributions <- function(base, new, outcome) {
   sample1 <- new %>% mutate(name = paste(name, week))
   sample2 <- base %>% mutate(name = paste(name, week))
@@ -973,9 +917,6 @@ compare_overlapped_distributions <- function(base, new, outcome) {
       x4 = paired.s2 %>% select(all_of(outcome)) %>% unlist(),
       conf.level = .95
     )
-  
-  
-  
   
   return(
     data.frame(
@@ -997,11 +938,7 @@ compare_overlapped_distributions <- function(base, new, outcome) {
 
 The following code applies the test to each combination of cluster, hop, and week. Note that in the paper we look at a monthly level, rather than a weekly level.
 
-```{r}
-#| label: create-ttest-table
-#| warning: false
-#| include: true
-
+```{r create-ttest-table}
 create_ttest_table <- function(base, new, outcome, weeks) {
   if (outcome %>% length() > 1) {
     tab <- foreach(out = outcome, .combine = rbind) %do% {
@@ -1081,11 +1018,7 @@ ttest_19_22 <- create_ttest_table(
 
 ```
 
-```{r}
-#|label: performance-plots
-#|echo: false
-#|warning: false
-
+```{r performance-plots}
 ttest_19_20 %>%
   ggplot(aes(
     x = factor(week),
