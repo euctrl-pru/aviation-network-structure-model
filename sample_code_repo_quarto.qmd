@@ -19,14 +19,19 @@ library(fdm2id)
 library(pruatlas)
 library(rnaturalearth)
 library(Partiallyoverlapping)
+library(reticulate)
+library(here)
+library(flexclust)
 
 set.seed(42)
 
+
+
+
+
 # Load Python packages
-
-library(reticulate)
-
-graphwave <- import_from_path(module = "graphwave",path = "./graphwave/")
+use_condaenv("aviation-network", required = TRUE)
+graphwave <- import_from_path(module = "graphwave", path = here("..", "graphwave", "graphwave"))
 np <- import("numpy")
 nx <- import("networkx")
 pd <- import("pandas")
@@ -40,10 +45,10 @@ The data consist of origin-destination flight data for flights departing from, o
 #| label: load-data
 #| warning: false
 #| echo: true
-net2019 <- fread("sample_2019.csv")
-net2020 <- fread("sample_2020.csv")
-net2021 <- fread("sample_2021.csv")
-net2022 <- fread("sample_2022.csv")
+net2019 <- fread(file = here("data", "sample_2019.csv"))
+net2020 <- fread(file = here("data", "sample_2020.csv"))
+net2021 <- fread(file = here("data", "sample_2021.csv"))
+net2022 <- fread(file = here("data", "sample_2022.csv"))
 
 weeks <- net2019$week%>%unique()
 n_weeks <- weeks%>%length()
@@ -99,6 +104,7 @@ net2021 <- preprocess_network(net2021)
 net2022 <- preprocess_network(net2022)
 
 ```
+
 
 ### Step 1: GraphWave analysis
 
@@ -399,7 +405,7 @@ To visualize the heat propagation for a given airport in a given week, we need t
 #| label: heat-df
 #| echo: true
 #| warning: false
-airports <- fread("airports_20221025.csv")
+airports <- fread(here("data", "airports_20221025.csv"))
 node.coords <- airports[, c("ident", "latitude_deg", "longitude_deg", "type")]
 net <- net2019%>%filter(week == weeks[1])
 
@@ -628,7 +634,7 @@ Additionally, we can also use the output to create a regional plot that shows ch
 #| include: true
 #| warning: false
 
-airports <- fread("airports_20221025.csv")
+airports <- fread(here("data", "airports_20221025.csv"))
 node.coords <- airports[, c("ident", "latitude_deg", "longitude_deg", "type")]
 
 data20 <-
@@ -858,16 +864,16 @@ This is a computationally intensive process, as for instance the 2019 network co
 #|label: load-sample-nb
 #|include: true
 
-net2019_nb_airport <- fread("sample_2019_nb.csv") %>% 
+net2019_nb_airport <- fread(here("data", "sample_2019_nb.csv")) %>% 
   left_join(net2019_clust) %>%
   filter(!is.na(clust))
-net2020_nb_airport <- fread("sample_2020_nb.csv") %>% 
+net2020_nb_airport <- fread(here("data", "sample_2020_nb.csv")) %>% 
   left_join(net2020_clust) %>%
   filter(!is.na(clust))
-net2021_nb_airport <- fread("sample_2021_nb.csv") %>% 
+net2021_nb_airport <- fread(here("data", "sample_2021_nb.csv")) %>% 
   left_join(net2021_clust) %>%
   filter(!is.na(clust))
-net2022_nb_airport <- fread("sample_2022_nb.csv") %>% 
+net2022_nb_airport <- fread(here("data", "sample_2022_nb.csv")) %>% 
   left_join(net2022_clust) %>%
   filter(!is.na(clust))
 
