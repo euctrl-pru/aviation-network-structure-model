@@ -9,10 +9,14 @@ library(fdm2id)
 library(pruatlas)
 library("rnaturalearth")
 library("Partiallyoverlapping")
+library(here)
+library(flexclust)
 
 set.seed(42)
 
-graphwave <- import(module = "graphwave")
+use_condaenv("aviation-network", required = TRUE)
+
+graphwave <- import_from_path(module = "graphwave", path = here("..", "graphwave", "graphwave"))
 np <- import("numpy")
 nx <- import("networkx")
 pd <- import("pandas")
@@ -22,6 +26,10 @@ sk <- import("sklearn")
 ##### Import Data #####
 weeks <- 26:31
 
+net2019 <- fread(file = here("data", "sample_2019.csv"))
+net2020 <- fread(file = here("data", "sample_2020.csv"))
+net2021 <- fread(file = here("data", "sample_2021.csv"))
+net2022 <- fread(file = here("data", "sample_2022.csv"))
 
 
 # First we select the focal airports of our analysis. Note that we have only flights arriving/departing
@@ -591,44 +599,35 @@ neighborhod_indices_airport("EHAM", net2019, full, full_ms, hop = 2)
 neighborhod_indices_airport("EHAM", net2019, full, full_ms, hop = 3)
 
 
-net2019_nb_airport <- fread("net2019_nb_airports.csv") %>%
-  filter(week %in% weeks)
-net2020_nb_airport <- fread("net2020_nb_airports.csv") %>%
-  filter(week %in% weeks)
-net2021_nb_airport <- fread("net2021_nb_airports.csv") %>%
-  filter(week %in% weeks)
-net2022_nb_airport <- fread("net2022_nb_airports.csv") %>%
-  filter(week %in% weeks)
+net2019_nb_airport <- fread(here("data", "sample_2019_nb.csv")) %>% filter(week %in% weeks)
+net2020_nb_airport <- fread(here("data", "sample_2020_nb.csv")) %>% filter(week %in% weeks)
+net2021_nb_airport <- fread(here("data", "sample_2021_nb.csv")) %>% filter(week %in% weeks)
+net2022_nb_airport <- fread(here("data", "sample_2022_nb.csv")) %>% filter(week %in% weeks)
 
-net2022_nb_airport$year <- 2022
 
-# fwrite(net2019_nb_airport,"sample_2019_nb.csv")
-# fwrite(net2020_nb_airport,"sample_2020_nb.csv")
-# fwrite(net2021_nb_airport,"sample_2021_nb.csv")
-# fwrite(net2022_nb_airport,"sample_2022_nb.csv")
 
-net2019_nb_airport <-
-  net2019_nb_airport %>% left_join(net2019_clust) %>% filter(name %in% airports19 &
-                                                               !is.na(clust6))
-net2020_nb_airport <-
-  net2020_nb_airport %>% left_join(net2020_clust) %>% filter(name %in% airports20 &
-                                                               !is.na(clust6))
-net2021_nb_airport <-
-  net2021_nb_airport %>% left_join(net2021_clust) %>% filter(name %in% airports21 &
-                                                               !is.na(clust6))
-net2022_nb_airport <-
-  net2022_nb_airport %>% left_join(net2022_clust) %>% filter(name %in% airports22 &
-                                                               !is.na(clust6))
+net2019_nb_airport <- net2019_nb_airport %>%
+  left_join(net2019_clust) %>%
+  filter(name %in% airports19 & !is.na(clust))
+net2020_nb_airport <- net2020_nb_airport %>%
+  left_join(net2020_clust) %>%
+  filter(name %in% airports20 & !is.na(clust))
+net2021_nb_airport <- net2021_nb_airport %>%
+  left_join(net2021_clust) %>%
+  filter(name %in% airports21 & !is.na(clust))
+net2022_nb_airport <- net2022_nb_airport %>%
+  left_join(net2022_clust) %>%
+  filter(name %in% airports22 & !is.na(clust))
 
 
 
 compare_overlapped_distributions <- function(base, new, outcome) {
-  sample1 <- new %>% mutate(name = paste(name, week))
-  sample2 <- base %>% mutate(name = paste(name, week))
+  sample1     <- new %>% mutate(name = paste(name, week))
+  sample2     <- base %>% mutate(name = paste(name, week))
   unpaired.s1 <- sample1 %>% filter(!name %in% sample2$name)
   unpaired.s2 <- sample2 %>% filter(!name %in% sample1$name)
-  paired.s1 <- sample1 %>% filter(name %in% sample2$name)
-  paired.s2 <- sample2 %>% filter(name %in% sample1$name)
+  paired.s1   <- sample1 %>% filter(name %in% sample2$name)
+  paired.s2   <- sample2 %>% filter(name %in% sample1$name)
 
   res <-
     Partover.test(
@@ -716,7 +715,7 @@ ttest_19_20 <- create_ttest_table(
     filter(name %in% airports20 &
              market_segment == "All-flights"),
   c("perc_vertices", "perc_edges", "perc_weights"),
-  "clust6",
+  "clust",
   weeks
 )
 
@@ -728,7 +727,7 @@ ttest_19_21 <- create_ttest_table(
     filter(name %in% airports21 &
              market_segment == "All-flights"),
   c("perc_vertices", "perc_edges", "perc_weights"),
-  "clust6",
+  "clust",
   weeks
 )
 ttest_19_22 <- create_ttest_table(
@@ -739,7 +738,7 @@ ttest_19_22 <- create_ttest_table(
     filter(name %in% airports22 &
              market_segment == "All-flights"),
   c("perc_vertices", "perc_edges", "perc_weights"),
-  "clust6",
+  "clust",
   weeks
 )
 
@@ -866,10 +865,7 @@ region_by_market_segment22 <- net2022 %>%
 
 
 #### Plot region ####
-airports <-
-  fread(
-    "airports_20221025.csv"
-  )
+airports <- fread(here("data", "airports_20221025.csv"))
 node.coords <- airports[,
                         c("ident", "latitude_deg", "longitude_deg", "type")]
 
@@ -878,7 +874,6 @@ data20 <-
     net2019_clust %>% filter(name %in% airports19),
     net2020_clust %>% filter(name %in% airports20),
     "airport",
-    "clust6",
     type = "abs"
   ) %>%
   left_join(node.coords, by = c("name" = "ident"))
@@ -887,7 +882,6 @@ data21 <-
     net2019_clust %>% filter(name %in% airports19),
     net2021_clust %>% filter(name %in% airports21),
     "airport",
-    "clust6",
     type = "abs"
   ) %>%
   left_join(node.coords, by = c("name" = "ident"))
@@ -896,7 +890,6 @@ data22 <-
     net2019_clust %>% filter(name %in% airports19),
     net2022_clust %>% filter(name %in% airports22),
     "airport",
-    "clust6",
     type = "abs"
   ) %>%
   left_join(node.coords, by = c("name" = "ident"))
@@ -928,8 +921,8 @@ plot_region <- function(region, country_name, data, years = 2020:2022) {
         x = longitude_deg,
         fill = diff,
         shape = factor(ifelse(
-          round(sum1) <= 2,
-          "<=2", as.character(round(sum1))
+          round(avg_role_base) <= 2,
+          "<=2", as.character(round(avg_role_base))
         ))
       ),
       data %>% filter(substr(name, 1, 2) == region) %>% filter(year %in% years),
@@ -948,10 +941,15 @@ plot_region <- function(region, country_name, data, years = 2020:2022) {
     labs(shape = "") +
     facet_wrap( ~ year)
 }
-plot_region("LI", "Italy", data_full) + theme(legend.position = "top") +
+
+plot_region("LI", "Italy", data_full) +
+  theme(legend.position = "top") +
   ylab("") + xlab("")
 
-plot_region("EG", "United Kingdom", data_full) + theme(legend.position = "top") +
-  ylab("") + xlab("") + coord_sf(xlim = c(-12, 3))
+plot_region("EG", "United Kingdom", data_full) +
+  theme(legend.position = "top") +
+  ylab("") +
+  xlab("") +
+  coord_sf(xlim = c(-12, 3))
 
 plot_region("EG", "United Kingdom", data_full)

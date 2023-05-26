@@ -14,6 +14,8 @@ knitr::opts_chunk$set(
 
 # Introduction
 
+Ciao
+
 This is the companion repository for the paper [@vossen2023] we submitted to
 the *2023 Integrated Communication, Navigation and Surveillance Conference (ICNS)*.
 
@@ -26,6 +28,46 @@ You can find here
 * the code to reproduce the model for the paper (and the provided data subset)
 * the validation paper of the used model
 
+
+## Setup
+
+We suggest you to create a dedicated conda environment for this project, we 
+refer to it as `aviation-network` in the following paragraphs.
+
+Note that we use Python 3.9 even if the GraphWave repo states it was developed in 2.7
+(and we define do NOT use version 2.1 of `networkx` as per the
+[GraphWave repo](https://github.com/snap-stanford/graphwave/blob/master/requirements.txt)).
+So to make `graphwave` import-able we have to fix the print statements in
+`graphwave/utils/graph_tools.py` from `print "message"` to `print("message")`
+
+```{shell, eval=FALSE}
+$ conda create -n aviation-network python=3.9 \
+    numpy networkx pandas scikit-learn pillow=9.0.0 \
+    matplotlib seaborn pyemd pygsp
+```
+
+Clone (or copy the relevant folder)
+[`graphwave` source code](https://github.com/snap-stanford/graphwave)
+in the parent directory of this project.
+
+```text
+<somewhere>
+├── aviation-network-structure-model
+│   ├── data
+│   │   ├── ...
+│   │   └── sample_2022.csv
+│   └── sample_code_for_repo.R
+│   └── ...
+└── graphwave
+    ├── graphwave
+    │   └── ...
+    └── requirements.txt
+```
+
+## Usage
+
+You can run the script `sample_code_for_repo.R` to reproduce the analysis of
+the paper on the sample data.
 
 
 ## References
