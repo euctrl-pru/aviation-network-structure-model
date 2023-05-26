@@ -1049,7 +1049,7 @@ ttest_19_20 %>%
   geom_line() +
   facet_wrap( ~ outcome + cluster, ncol = 6) +
   theme_minimal() + theme(legend.position = "top")+
-  labs(title = "Performance comparisson 2019 and 2020")
+  labs(title = "Performance comparison 2019 and 2020")
 
 ttest_19_21 %>%
   ggplot(aes(
@@ -1081,7 +1081,7 @@ ttest_19_21 %>%
   geom_line() +
   facet_wrap( ~ outcome + cluster, ncol = 6) +
   theme_minimal() + theme(legend.position = "top")+
-  labs(title = "Performance comparisson 2019 and 2021")
+  labs(title = "Performance comparison 2019 and 2021")
 
 ttest_19_22 %>%
   ggplot(aes(
@@ -1113,7 +1113,7 @@ ttest_19_22 %>%
   geom_line() +
   facet_wrap( ~ outcome + cluster, ncol = 6) +
   theme_minimal() + theme(legend.position = "top")+
-  labs(title = "Performance comparisson 2019 and 2022")
+  labs(title = "Performance comparison 2019 and 2022")
 
 ```
 
