@@ -41,10 +41,12 @@ Note that we use Python 3.9 even if the GraphWave repo states it was developed i
 So to make `graphwave` import-able we have to fix the print statements in
 `graphwave/utils/graph_tools.py` from `print "message"` to `print("message")`
 
-```{shell conda-create-env, eval=FALSE}
+```{bash conda-create-env, eval=FALSE}
 $ conda create -n aviation-network python=3.9 \
     numpy networkx pandas scikit-learn pillow=9.0.0 \
-    matplotlib seaborn pyemd pygsp
+    matplotlib seaborn pygsp
+$ conda activate aviation-network
+$ pip install pyemd
 ```
 
 Clone (or copy the relevant folder)
@@ -1049,7 +1051,7 @@ ttest_19_20 %>%
   geom_line() +
   facet_wrap( ~ outcome + cluster, ncol = 6) +
   theme_minimal() + theme(legend.position = "top")+
-  labs(title = "Performance comparisson 2019 and 2020")
+  labs(title = "Performance comparison 2019 and 2020")
 
 ttest_19_21 %>%
   ggplot(aes(
