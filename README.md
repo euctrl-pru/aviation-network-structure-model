@@ -65,7 +65,7 @@ This is the structure expected by the code:
 You can run the script `sample_code_for_repo.R` to reproduce the
 analysis of the paper on the sample data.
 
-But the same code will be explained in the little by little here.
+But the same code will be explained little by little below.
 
 Here we provide with sample code and data to run the analyses as
 described in the “*Studying the impact of COVID-19 on the European Air

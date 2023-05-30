@@ -74,7 +74,7 @@ This is the structure expected by the code:
 You can run the script `sample_code_for_repo.R` to reproduce the analysis of
 the paper on the sample data.
 
-But the same code will be explained in the little by little here.
+But the same code will be explained little by little below.
 
 
 
